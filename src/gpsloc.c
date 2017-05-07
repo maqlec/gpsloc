@@ -17,28 +17,27 @@ static int max_queue_size;
 
 /*DB***************************************************************************/
 
-static PGconn *conn;
+static MYSQL *con;
 
 void db_connect() {
-	char conn_string[256];
-
+	char db_host[] = "localhost";
 	char db_name[] = "teltonika";
-	char db_username[] = "teltonika";
-	char db_password[] = "teltonika";
+	char db_username[] = "root";
+	char db_password[] = "qwerty";
 
-	sprintf(conn_string, "user=%s dbname=%s password=%s", db_username, db_name, db_password);
-	conn = PQconnectdb(conn_string);
+	con = mysql_init(NULL);
 
-	if (PQstatus(conn) == CONNECTION_BAD) {
-		logger_puts("Connection to database failed: %s", PQerrorMessage(conn));
-		PQfinish(conn);
-		fatal("Connection to database failed: %s", PQerrorMessage(conn));
+	if (con == NULL || mysql_real_connect(con, db_host, db_username, db_password, db_name, 0, NULL, 0) == NULL) {
+		logger_puts("Connection failed: %s", mysql_error(con));
+		mysql_close(con);
+		fatal("Connection failed: %s", mysql_error(con));
 	} else
-		logger_puts("Connection to database established successfully");
+		logger_puts("Connected to DB");
+
 }
 
 void db_store_AVL_data_array(const AVL_data_array* data_array) {
-	PGresult *res;
+	MYSQL_RES *result;
 	char query[512];
 	char time_str[80];
 	struct tm* tminfo;
@@ -51,7 +50,7 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 		tminfo = localtime(&avl_data.timestamp);
 		strftime(time_str, 80, "%Y-%m-%d %H:%M:%S %z", tminfo);
 
-		sprintf(query, "INSERT INTO avl_records(imei, tmstamp, latitude, longitude, altitude, angle, satellites, speed) VALUES ('%s', '%s', %lf, %lf, %d, %d, %d, %d)",
+		sprintf(query, "INSERT INTO records(imei, tmstamp, latitude, longitude, altitude, angle, satellites, speed) VALUES ('%s', '%s', %lf, %lf, %d, %d, %d, %d)",
 				data_array->imei,
 				time_str,
 				avl_data.gps_elem.latitude,
@@ -62,30 +61,29 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 				avl_data.gps_elem.speed
 				);
 
-		res = PQexec(conn, query);
-
-		if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-			logger_puts("pqlib, %s", PQerrorMessage(conn));
-			printf("pqlib, %s\n", PQerrorMessage(conn));
-			PQclear(res);
-			PQfinish(conn);
+		if (!mysql_query(con, query)) {
+			result = mysql_use_result(con);
+			logger_puts("mysql_error, %s", mysql_error(con));
+			printf("mysql_error, %s\n", mysql_error(con));
+			mysql_free_result(result);
+			mysql_close(con);
 			exit(EXIT_FAILURE);
 		}
-
-		PQclear(res);
+		
+		mysql_free_result(result);
 	}
 }
 
 void db_close() {
-	if (conn)
-		PQfinish(conn);
+	if (con)
+		mysql_close(con);
 }
 /*DB***************************************************************************/
 
 static void* thread_consumer(void *arg) {
 	AVL_data_array *data_array;
 	int s;
-
+	
 	db_connect();
 
 	while (1) {
