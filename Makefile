@@ -7,7 +7,7 @@ BUILDDIR := build
 TARGETDIR := bin
 
 #Targets
-EXECUTABLE := ttserv
+EXECUTABLE := gpsloc
 TARGET := $(TARGETDIR)/$(EXECUTABLE)
 INSTALLBINDIR := /usr/local/bin
 
