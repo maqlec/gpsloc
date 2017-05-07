@@ -62,8 +62,7 @@ init_clients_hash()
   clients_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (!clients_hash)
   {
-    logger_puts("ERROR: %s, '%s', line %d, 'g_hash_table_new' failed", __FILE__, __func__, __LINE__);
-    fatal("ERROR: 'g_hash_table_new' failed");
+    fatal("ERROR: %s, '%s', line %d, 'g_hash_table_new' failed", __FILE__, __func__, __LINE__);
   }
 }
 
@@ -89,8 +88,7 @@ get_client(struct bufferevent *bev)
 
   if (slot < 0 || slot >= MAXCLIENTS)
   {
-    logger_puts("ERROR: %s, '%s', line %d, slot value (%d) out of range", __FILE__, __func__, __LINE__, slot);
-    fatal("ERROR: slot value (%d) out of range");
+    fatal("ERROR: %s, '%s', line %d, slot value (%d) out of range", __FILE__, __func__, __LINE__, slot);
   }
 
   return &clients[slot];
@@ -102,8 +100,7 @@ remove_client(struct bufferevent *bev)
   int slot = GPOINTER_TO_INT(g_hash_table_lookup(clients_hash, GINT_TO_POINTER(bev)));
   if (slot < 0 || slot >= MAXCLIENTS)
   {
-    logger_puts("ERROR: %s, '%s', line %d, slot value (%d) out of range", __FILE__, __func__, __LINE__, slot);
-    fatal("ERROR: slot value (%d) out of range");
+    fatal("ERROR: %s, '%s', line %d, slot value (%d) out of range", __FILE__, __func__, __LINE__, slot);
   }
 
   /* free allocated memory */

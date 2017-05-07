@@ -3,7 +3,6 @@
 #include "clients_module.h"
 #include "parser_module.h"
 #include <assert.h>
-#include <libpq-fe.h>
 #include <time.h>
 #include <my_global.h>
 #include <mysql.h>
@@ -28,16 +27,15 @@ void db_connect() {
 	con = mysql_init(NULL);
 
 	if (con == NULL || mysql_real_connect(con, db_host, db_username, db_password, db_name, 0, NULL, 0) == NULL) {
-		logger_puts("Connection failed: %s", mysql_error(con));
 		mysql_close(con);
 		fatal("Connection failed: %s", mysql_error(con));
 	} else
-		logger_puts("Connected to DB");
+		puts("Connected to DB");
 
 }
 
 void db_store_AVL_data_array(const AVL_data_array* data_array) {
-	MYSQL_RES *result;
+//	MYSQL_RES *result;
 	char query[512];
 	char time_str[80];
 	struct tm* tminfo;
@@ -50,7 +48,7 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 		tminfo = localtime(&avl_data.timestamp);
 		strftime(time_str, 80, "%Y-%m-%d %H:%M:%S %z", tminfo);
 
-		sprintf(query, "INSERT INTO records(imei, tmstamp, latitude, longitude, altitude, angle, satellites, speed) VALUES ('%s', '%s', %lf, %lf, %d, %d, %d, %d)",
+		sprintf(query, "INSERT INTO records(imei, timestamp, latitude, longitude, altitude, angle, satellites, speed) VALUES ('%s', '%s', %lf, %lf, %d, %d, %d, %d)",
 				data_array->imei,
 				time_str,
 				avl_data.gps_elem.latitude,
@@ -61,16 +59,17 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 				avl_data.gps_elem.speed
 				);
 
-		if (!mysql_query(con, query)) {
-			result = mysql_use_result(con);
-			logger_puts("mysql_error, %s", mysql_error(con));
-			printf("mysql_error, %s\n", mysql_error(con));
-			mysql_free_result(result);
-			mysql_close(con);
-			exit(EXIT_FAILURE);
-		}
+		mysql_query(con, query);
+//		result = mysql_use_result(con);
 		
-		mysql_free_result(result);
+//		if (!result) {
+//			printf("mysql_error, %s\n", mysql_error(con));
+//			mysql_free_result(result);
+//			mysql_close(con);
+//			exit(EXIT_FAILURE);
+//		}
+//		
+//		mysql_free_result(result);
 	}
 }
 
@@ -89,8 +88,7 @@ static void* thread_consumer(void *arg) {
 	while (1) {
 		s = pthread_mutex_lock(&mtx);
 		if (s != 0) {
-			logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
-			fatal("%s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
+			fatal("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
 		}
 		/******* LOCKED *******************************************/
 
@@ -98,8 +96,7 @@ static void* thread_consumer(void *arg) {
 		while (queue->length == 0) {
 			s = pthread_cond_wait(&cond_consumer, &mtx);
 			if (s != 0) {
-				logger_puts("ERROR: %s, '%s', line %d, pthread_cond_wait failed with code %d", __FILE__, __func__, __LINE__, s);
-				fatal("%s, '%s', line %d, pthread_cond_wait failed with code %d", __FILE__, __func__, __LINE__, s);
+				fatal("ERROR: %s, '%s', line %d, pthread_cond_wait failed with code %d", __FILE__, __func__, __LINE__, s);
 			}
 		}
 
@@ -117,8 +114,7 @@ static void* thread_consumer(void *arg) {
 		/******* UNLOCK *******************************************/
 		s = pthread_mutex_unlock(&mtx);
 		if (s != 0) {
-			logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
-			fatal("%s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
+			fatal("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
 		}
 
 	}
@@ -135,8 +131,7 @@ static void push_onto_queue(const client_info* client) {
 
 	data_array = (AVL_data_array*) malloc(sizeof (AVL_data_array));
 	if (!data_array) {
-		logger_puts("ERROR: %s, '%s', line %d, malloc failed", __FILE__, __func__, __LINE__);
-		fatal("%s, '%s', line %d, malloc failed", __FILE__, __func__, __LINE__);
+		fatal("ERROR: %s, '%s', line %d, malloc failed", __FILE__, __func__, __LINE__);
 	}
 
 	parse_AVL_data_array(client->data_packet->data, data_array);
@@ -147,7 +142,6 @@ static void push_onto_queue(const client_info* client) {
 
 	s = pthread_mutex_lock(&mtx);
 	if (s != 0) {
-		logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
 		fatal("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
 	}
 
@@ -155,13 +149,13 @@ static void push_onto_queue(const client_info* client) {
 
 	if (max_queue_size < queue->length) {
 		max_queue_size = queue->length;
-		logger_puts("Queue max size: %d", max_queue_size);
+		printf("Queue max size: %d\n", max_queue_size);
 	}
 
 	/*print_raw_packet(client->data_packet->data, client->data_packet->len);*/
 	s = pthread_mutex_unlock(&mtx);
 	if (s != 0) {
-		logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
+		printf("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
 		fatal("%s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
 	}
 }
@@ -190,8 +184,7 @@ static int process_imei(const unsigned char* data, size_t nbytes, client_info* c
 		else if ((num_of_read_bytes - 2) == length)
 			return TRUE;
 		else {
-			logger_puts("ERROR: %s, '%s', line %d, number of bytes read is greater than indicated value in the IMEI message (first two bytes)", __FILE__, __func__, __LINE__);
-			fatal("%s, '%s', line %d, number of bytes read is greater than indicated value in the IMEI message (first two bytes)", __FILE__, __func__, __LINE__);
+			fatal("ERROR: %s, '%s', line %d, number of bytes read is greater than indicated value in the IMEI message (first two bytes)", __FILE__, __func__, __LINE__);
 		}
 	}
 	return FALSE;
@@ -202,8 +195,6 @@ static int process_imei(const unsigned char* data, size_t nbytes, client_info* c
 static int process_data_packet(const unsigned char* data, size_t nbytes, client_info* client) {
 	size_t length;
 	size_t num_of_read_bytes;
-
-	/*logger_puts("processing data packet");*/
 
 	g_byte_array_append(client->data_packet, (guint8*) data, nbytes);
 	num_of_read_bytes = client->data_packet->len;
@@ -222,8 +213,7 @@ static int process_data_packet(const unsigned char* data, size_t nbytes, client_
 		else if (num_of_read_bytes == (length + 12))
 			return TRUE;
 		else {
-			logger_puts("ERROR: %s, '%s', line %d, number of bytes read is greater than indicated value in the data packet (first four bytes)", __FILE__, __func__, __LINE__);
-			fatal("%s, '%s', line %d, number of bytes read is greater than indicated value in the data packet (first four bytes)", __FILE__, __func__, __LINE__);
+			fatal("ERROR: %s, '%s', line %d, number of bytes read is greater than indicated value in the data packet (first four bytes)", __FILE__, __func__, __LINE__);
 		}
 	}
 
@@ -237,11 +227,9 @@ static void serv_event_cb(struct bufferevent *bev, short events, void *ctx) {
 
 	if (events & BEV_EVENT_ERROR) {
 		err = EVUTIL_SOCKET_ERROR();
-		logger_puts("ERROR: %s, '%s', line %d, %s", __FILE__, __func__, __LINE__, evutil_socket_error_to_string(err));
 		printf("ERROR: %s, '%s', line %d, %s\n", __FILE__, __func__, __LINE__, evutil_socket_error_to_string(err));
 	} else if (events & BEV_EVENT_TIMEOUT) {
-		logger_puts("ERROR: %s, '%s', line %d, a timeout expired on the bufferevent", __FILE__, __func__, __LINE__);
-		printf("ERROR: %s, '%s', line %d, a timeout expired on the bufferevent", __FILE__, __func__, __LINE__);
+		printf("ERROR: %s, '%s', line %d, a timeout expired on the bufferevent\n", __FILE__, __func__, __LINE__);
 	}
 
 	if (events & (BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) {
@@ -265,16 +253,14 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 	assert(client != NULL);
 
 	if (evbuffer_get_length(input) > INPUT_BUFSIZE) {
-		logger_puts("ERROR: %s, '%s', line %d, insufficient buffer size", __FILE__, __func__, __LINE__);
-		fatal("Insufficient buffer size");
+		fatal("ERROR: %s, '%s', line %d, insufficient buffer size", __FILE__, __func__, __LINE__);
 	}
 
 	memset(input_buffer, 0, INPUT_BUFSIZE);
 
 	nbytes = bufferevent_read(bev, input_buffer, INPUT_BUFSIZE);
 	if (nbytes == -1) {
-		logger_puts("ERROR: %s, '%s', line %d, couldn't read data from bufferevent", __FILE__, __func__, __LINE__);
-		fatal("%s, '%s', line %d, couldn't read data from bufferevent", __FILE__, __func__, __LINE__);
+		fatal("ERROR: %s, '%s', line %d, couldn't read data from bufferevent", __FILE__, __func__, __LINE__);
 	}
 
 	if (client->state == WAIT_FOR_IMEI) {
@@ -282,8 +268,7 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 		if (process_imei(input_buffer, nbytes, client)) {
 			ack[0] = 0x01;
 			if (bufferevent_write(bev, ack, 1) == -1) {
-				logger_puts("ERROR: %s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
-				fatal("%s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
+				fatal("ERROR: %s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
 			}
 			client->state = WAIT_00_01_TOBE_SENT;
 		}
@@ -292,8 +277,7 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 			/* send #data recieved */
 			ack[3] = client->data_packet->data[NUM_OF_DATA];
 			if (bufferevent_write(bev, ack, 4) == -1) {
-				logger_puts("ERROR: %s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
-				fatal("%s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
+				fatal("ERROR: %s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
 			}
 			client->state = WAIT_NUM_RECIEVED_DATA_TOBE_SENT;
 		}
@@ -312,15 +296,13 @@ static void serv_write_cb(struct bufferevent *bev, void *ctx) {
 
 	if (client->state == WAIT_00_01_TOBE_SENT) {
 		client->state = WAIT_FOR_DATA_PACKET;
-		/*logger_puts("in WAIT_FOR_DATA_PACKET state");*/
 	} else if (client->state == WAIT_NUM_RECIEVED_DATA_TOBE_SENT) {
 		push_onto_queue(client); /* for parsing and storing in DB, by another thread */
 
 		/* Wake waiting consumer */
 		s = pthread_cond_signal(&cond_consumer);
 		if (s != 0) {
-			logger_puts("ERROR: %s, '%s', line %d, pthread_cond_signal failed with code %d", __FILE__, __func__, __LINE__, s);
-			fatal("%s, '%s', line %d, pthread_cond_signal failed with code %d", __FILE__, __func__, __LINE__, s);
+			fatal("ERROR: %s, '%s', line %d, pthread_cond_signal failed with code %d", __FILE__, __func__, __LINE__, s);
 		}
 
 		remove_client(bev);
@@ -348,7 +330,7 @@ static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd, 
 static void accept_error_cb(struct evconnlistener *listener, void *ctx) {
 	struct event_base *base = evconnlistener_get_base(listener);
 	int err = EVUTIL_SOCKET_ERROR();
-	logger_puts("Got an error %d (%s) on the listener. Shutting down.\n", err, evutil_socket_error_to_string(err));
+	fatal("Got an error %d (%s) on the listener. Shutting down.\n", err, evutil_socket_error_to_string(err));
 	event_base_loopexit(base, NULL);
 }
 
@@ -359,8 +341,6 @@ int main(int argc, char **argv) {
 	void* res;
 	pthread_t pthread;
 
-	logger_open("gpsloc.log");
-
 	init_clients_hash();
 	queue = g_queue_new();
 	assert(queue != NULL);
@@ -368,11 +348,8 @@ int main(int argc, char **argv) {
 	/* start parallel thread */
 	s = pthread_create(&pthread, NULL, thread_consumer, NULL);
 	if (s != 0) {
-		logger_puts("ERROR: %s, '%s', line %d, pthread_create failed with error %d", __FILE__, __func__, __LINE__, s);
-		logger_close();
-		fatal("%s, '%s', line %d, pthread_create failed with error %d", __FILE__, __func__, __LINE__, s);
+		fatal("%s, '%s', line %d, pthread_create failed with error %d\n", __FILE__, __func__, __LINE__, s);
 	}
-	logger_puts("INFO: AVL data consumer started successfully");
 	puts("AVL data consumer thread started successfully");
 
 
@@ -380,16 +357,12 @@ int main(int argc, char **argv) {
 		port = atoi(argv[1]);
 
 	if (port <= 0 || port > 65535) {
-		logger_puts("ERROR: %s, '%s', line %d, invalid port", __FILE__, __func__, __LINE__);
-		logger_close();
-		fatal("Invalid port");
+		fatal("ERROR: %s, '%s', line %d, invalid port\n", __FILE__, __func__, __LINE__);
 	}
 
 	base = event_base_new();
 	if (!base) {
-		logger_puts("ERROR: %s, '%s', line %d, couldn't open event base", __FILE__, __func__, __LINE__);
-		logger_close();
-		fatal("%s, '%s', line %d, couldn't open event base", __FILE__, __func__, __LINE__);
+		fatal("ERROR: %s, '%s', line %d, couldn't open event base\n", __FILE__, __func__, __LINE__);
 	}
 
 	/* Clear the sockaddr before using it, in case there are extra
@@ -406,9 +379,7 @@ int main(int argc, char **argv) {
 			(struct sockaddr*) &sin, sizeof (sin));
 
 	if (!listener) {
-		logger_puts("ERROR: %s, '%s', line %d, couldn't create listener", __FILE__, __func__, __LINE__);
-		logger_close();
-		fatal("Couldn't create listener");
+		fatal("ERROR: %s, '%s', line %d, couldn't create listener\n", __FILE__, __func__, __LINE__);
 	}
 
 	evconnlistener_set_error_cb(listener, accept_error_cb);
@@ -419,9 +390,7 @@ int main(int argc, char **argv) {
 	   in fact this code should be unreachable since event_base_dispatch loops infinitely */
 	s = pthread_join(pthread, &res);
 	if (s != 0) {
-		logger_puts("ERROR: %s, '%s', line %d, pthread_join failed with error %d", __FILE__, __func__, __LINE__, s);
-		logger_close();
-		fatal("%s, '%s', line %d, pthread_join failed with error %d", __FILE__, __func__, __LINE__, s);
+		fatal("ERROR: %s, '%s', line %d, pthread_join failed with error %d\n", __FILE__, __func__, __LINE__, s);
 	}
 	puts("AVL data consumer thread finished successfully.");
 
@@ -436,7 +405,6 @@ int main(int argc, char **argv) {
 	pthread_mutex_destroy(&mtx);
 	pthread_cond_destroy(&cond_consumer);
 
-	logger_close();
 	exit(EXIT_SUCCESS);
 }
 
