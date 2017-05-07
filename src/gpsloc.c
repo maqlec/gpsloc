@@ -2,13 +2,11 @@
 #include "logger_module.h"
 #include "clients_module.h"
 #include "parser_module.h"
-#include "conf_module.h"
 #include <assert.h>
 #include <libpq-fe.h>
 #include <time.h>
-
-#define DB_KEYS_NUMBER 3
-#define IO_ELEM_KEYS_NUMBER 3
+#include <my_global.h>
+#include <mysql.h>
 
 static unsigned char input_buffer[INPUT_BUFSIZE];
 struct event_base *base;
@@ -20,22 +18,15 @@ static int max_queue_size;
 /*DB***************************************************************************/
 
 static PGconn *conn;
-static int io_ignation_id;
-static int io_speed_id;
-static int io_odometer_id;
 
 void db_connect() {
-	char db_keys[DB_KEYS_NUMBER + 1][MAX_CONF_STRING_LEN] = {"dbname", "username", "password", ""};
-	char db_values[DB_KEYS_NUMBER][MAX_CONF_STRING_LEN];
-
-	char io_elem_keys[IO_ELEM_KEYS_NUMBER + 1][MAX_CONF_STRING_LEN] = {"io_ignation_id", "io_speed_id", "io_odometer_id", ""};
-	char io_elem_values[IO_ELEM_KEYS_NUMBER][MAX_CONF_STRING_LEN];
-
 	char conn_string[256];
 
-	conf_read("database", db_keys, db_values);
+	char db_name[] = "teltonika";
+	char db_username[] = "teltonika";
+	char db_password[] = "teltonika";
 
-	sprintf(conn_string, "user=%s dbname=%s password=%s", db_values[0], db_values[1], db_values[2]);
+	sprintf(conn_string, "user=%s dbname=%s password=%s", db_username, db_name, db_password);
 	conn = PQconnectdb(conn_string);
 
 	if (PQstatus(conn) == CONNECTION_BAD) {
@@ -44,11 +35,6 @@ void db_connect() {
 		fatal("Connection to database failed: %s", PQerrorMessage(conn));
 	} else
 		logger_puts("Connection to database established successfully");
-
-	conf_read("IO Elements", io_elem_keys, io_elem_values);
-	io_ignation_id = atoi(io_elem_values[0]);
-	io_speed_id = atoi(io_elem_values[1]);
-	io_odometer_id = atoi(io_elem_values[2]);
 }
 
 void db_store_AVL_data_array(const AVL_data_array* data_array) {
@@ -96,7 +82,6 @@ void db_close() {
 }
 /*DB***************************************************************************/
 
-
 static void* thread_consumer(void *arg) {
 	AVL_data_array *data_array;
 	int s;
@@ -123,7 +108,7 @@ static void* thread_consumer(void *arg) {
 		/* consume all AVL data*/
 		while (queue->length) {
 			data_array = g_queue_pop_tail(queue);
-			/*print_AVL_data(data_array);*/
+			print_AVL_data(data_array);
 			db_store_AVL_data_array(data_array);
 
 			printf("IMEI %s, %d data stored id db\n", data_array->imei, data_array->number_of_data);
@@ -138,7 +123,7 @@ static void* thread_consumer(void *arg) {
 			fatal("%s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
 		}
 
-	}/* while(1) */
+	}
 
 	return 0;
 }
@@ -369,15 +354,14 @@ static void accept_error_cb(struct evconnlistener *listener, void *ctx) {
 	event_base_loopexit(base, NULL);
 }
 
-int
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
 	struct evconnlistener *listener;
 	struct sockaddr_in sin;
-	int s, port = 1975;
+	int s, port = 5555;
 	void* res;
 	pthread_t pthread;
 
-	logger_open("ttserv.log");
+	logger_open("gpsloc.log");
 
 	init_clients_hash();
 	queue = g_queue_new();

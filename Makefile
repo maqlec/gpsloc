@@ -16,7 +16,7 @@ OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SRCFILES:.c=.o))
 
 CFLAGS := -Wall `pkg-config --cflags glib-2.0`
 LDLIBS := `pkg-config --libs glib-2.0` -levent -pthread -lpq
-INC := -I $(INCDIR) -I /usr/local/include -I `pg_config --includedir`
+INC := -I $(INCDIR) -I /usr/local/include -I `pg_config --includedir` -I /usr/include/mysql
 
 
 $(TARGET): $(OBJECTS)
