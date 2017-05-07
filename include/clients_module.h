@@ -1,7 +1,7 @@
 #ifndef CLIENTS_MODULE
 #define CLIENTS_MODULE
 
-#include "hdrs.h"
+#include "headers.h"
 
 typedef struct {
 	char state;

@@ -1,6 +1,6 @@
 #include <stdarg.h>
 #include "error_functions.h"
-#include "hdrs.h"
+#include "headers.h"
 #include "ename.c.inc"
 
 #ifdef __GNUC__

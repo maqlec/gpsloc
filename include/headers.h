@@ -18,20 +18,20 @@
 #include "get_num.h"
 #include "error_functions.h"
 
-
 #define min(m,n) ((m) < (n) ? (m) : (n))
 #define max(m,n) ((m) > (n) ? (m) : (n))
 
-#define PORT 1975
+#define PORT 5555
 #define INPUT_BUFSIZE 2048
 
-#define BUF_SIZE 500
+#define MYSQL_HOST "localhost"
+#define MYSQL_NAME "teltonika"
+#define MYSQL_USERNAME "root"
+#define MYSQL_PASSWORD "qwerty"
 
 #define WAIT_FOR_IMEI 1
 #define WAIT_00_01_TOBE_SENT 2
 #define WAIT_FOR_DATA_PACKET 3
 #define WAIT_NUM_RECIEVED_DATA_TOBE_SENT 4
-
-#define NUM_OF_DATA 9
 
 #endif

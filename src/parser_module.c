@@ -1,5 +1,5 @@
 #include <time.h>
-#include "hdrs.h"
+#include "headers.h"
 #include "parser_module.h"
 
 static void parse_gps_element(const unsigned char* data_packet, size_t* pos, gps_element* gps_elem) {

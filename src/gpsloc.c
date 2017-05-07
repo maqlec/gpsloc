@@ -1,4 +1,4 @@
-#include "hdrs.h"
+#include "headers.h"
 #include "clients_module.h"
 #include "parser_module.h"
 #include <assert.h>
@@ -18,14 +18,9 @@ static int max_queue_size;
 static MYSQL *con;
 
 void db_connect() {
-	char db_host[] = "localhost";
-	char db_name[] = "teltonika";
-	char db_username[] = "root";
-	char db_password[] = "qwerty";
-
 	con = mysql_init(NULL);
 
-	if (con == NULL || mysql_real_connect(con, db_host, db_username, db_password, db_name, 0, NULL, 0) == NULL) {
+	if (con == NULL || mysql_real_connect(con, MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_NAME, 0, NULL, 0) == NULL) {
 		mysql_close(con);
 		fatal("Connection failed: %s", mysql_error(con));
 	} else
@@ -336,7 +331,7 @@ static void accept_error_cb(struct evconnlistener *listener, void *ctx) {
 int main(int argc, char **argv) {
 	struct evconnlistener *listener;
 	struct sockaddr_in sin;
-	int s, port = 5555;
+	int s, port = PORT;
 	void* res;
 	pthread_t pthread;
 
