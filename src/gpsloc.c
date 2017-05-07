@@ -2,7 +2,6 @@
 #include "logger_module.h"
 #include "clients_module.h"
 #include "parser_module.h"
-#include "pq_module.h"
 #include <assert.h>
 #include <libpq-fe.h>
 #include <time.h>
