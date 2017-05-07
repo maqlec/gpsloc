@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="100">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <df root="." name="0">
+      <df name="src">
+        <in>clients_module.c</in>
+        <in>conf_module.c</in>
+        <in>error_functions.c</in>
+        <in>get_num.c</in>
+        <in>logger_module.c</in>
+        <in>parser_module.c</in>
+        <in>pq_module.c</in>
+        <in>ttserv.c</in>
+      </df>
+    </df>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>Makefile</itemPath>
+      <itemPath>nbproject/private/launcher.properties</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
+  <sourceRootList>
+    <Elem>.</Elem>
+  </sourceRootList>
+  <projectmakefile>Makefile</projectmakefile>
+  <confs>
+    <conf name="Default" type="0">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>false</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <codeAssistance>
+      </codeAssistance>
+      <makefileType>
+        <makeTool>
+          <buildCommandWorkingDir>.</buildCommandWorkingDir>
+          <buildCommand>${MAKE} -f Makefile</buildCommand>
+          <cleanCommand>${MAKE} -f Makefile clean</cleanCommand>
+          <executablePath></executablePath>
+          <cTool>
+            <incDir>
+              <pElem>/usr/include/glib-2.0</pElem>
+              <pElem>/usr/lib/x86_64-linux-gnu/glib-2.0/include</pElem>
+              <pElem>include</pElem>
+              <pElem>/usr/local/include</pElem>
+              <pElem>/usr/include/postgresql</pElem>
+              <pElem>.</pElem>
+            </incDir>
+          </cTool>
+        </makeTool>
+        <preBuild>
+          <preBuildCommandWorkingDir>.</preBuildCommandWorkingDir>
+          <preBuildCommand></preBuildCommand>
+        </preBuild>
+      </makefileType>
+      <item path="src/clients_module.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/conf_module.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/error_functions.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/get_num.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/logger_module.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/parser_module.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/pq_module.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="src/ttserv.c" ex="false" tool="0" flavor2="0">
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>
