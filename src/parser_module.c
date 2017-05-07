@@ -139,16 +139,6 @@ void parse_AVL_data_array(const unsigned char* data_packet, AVL_data_array* data
 /******************************************************************************/
 
 /* for diagnostics purpose */
-void print_raw_packet(const unsigned char* data_packet, size_t len) {
-	int i;
-	for (i = 0; i < len; i++)
-		printf("%02x|", data_packet[i]);
-	printf("\n");
-}
-
-/******************************************************************************/
-
-/* for diagnostics purpose */
 void print_AVL_data(const AVL_data_array* data_array) {
 	int i, j;
 	char buffer[80];
