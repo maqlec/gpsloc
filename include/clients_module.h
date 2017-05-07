@@ -3,11 +3,10 @@
 
 #include "hdrs.h"
 
-typedef struct
-{
-  char state;
-  GByteArray *imei;
-  GByteArray *data_packet;
+typedef struct {
+	char state;
+	GByteArray *imei;
+	GByteArray *data_packet;
 } client_info;
 
 
