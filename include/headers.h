@@ -25,7 +25,7 @@
 #define INPUT_BUFSIZE 2048
 
 #define MYSQL_HOST "localhost"
-#define MYSQL_NAME "teltonika"
+#define MYSQL_NAME "gpsloc"
 #define MYSQL_USERNAME "root"
 #define MYSQL_PASSWORD "qwerty"
 
