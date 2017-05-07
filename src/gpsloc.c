@@ -252,6 +252,7 @@ void db_close() {
 
 /*DB***************************************************************************/
 
+/*Clients**********************************************************************/
 typedef struct {
 	char state;
 	GByteArray *imei;
@@ -377,7 +378,6 @@ static void* thread_consumer(void *arg) {
 		/* consume all AVL data*/
 		while (queue->length) {
 			data_array = g_queue_pop_tail(queue);
-			//			print_AVL_data(data_array);
 			db_store_AVL_data_array(data_array);
 
 			printf("IMEI %s, %d data stored id db\n", data_array->imei, data_array->number_of_data);
