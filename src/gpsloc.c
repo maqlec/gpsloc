@@ -1,20 +1,195 @@
 #include "headers.h"
 #include "clients_module.h"
-#include "parser_module.h"
 #include <assert.h>
 #include <time.h>
 #include <my_global.h>
 #include <mysql.h>
 
-static unsigned char input_buffer[INPUT_BUFSIZE];
-struct event_base *base;
-static GQueue* queue;
-static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond_consumer = PTHREAD_COND_INITIALIZER;
-static int max_queue_size;
+#define CODEC_ID 8
+#define NUM_OF_DATA 9
+#define FISRT_RECORD_OFFSET 10
+#define MAX_AVL_RECORDS 50
+
+typedef struct {
+	double latitude;
+	double longitude;
+	int altitude;
+	int angle;
+	unsigned char satellites;
+	int speed;
+} gps_element;
+
+typedef struct {
+	unsigned char id;
+	unsigned long int value;
+} io_element_node;
+
+typedef struct {
+	unsigned char event_io_id;
+	unsigned char number_of_total_io;
+
+	unsigned char number_of_1byte_io;
+	io_element_node one_byte_io[5];
+
+	unsigned char number_of_2byte_io;
+	io_element_node two_byte_io[5];
+
+	unsigned char number_of_4byte_io;
+	io_element_node four_byte_io[4];
+
+	unsigned char number_of_8byte_io;
+	io_element_node eight_byte_io[4];
+
+} io_element;
+
+typedef struct {
+	long int timestamp;
+	unsigned char priority;
+	gps_element gps_elem;
+	io_element io_elem;
+} AVL_data;
+
+typedef struct {
+	char imei[50];
+	unsigned char codec_id;
+	unsigned char number_of_data;
+	AVL_data records[MAX_AVL_RECORDS];
+} AVL_data_array;
+
+static void parse_gps_element(const unsigned char* data_packet, size_t* pos, gps_element* gps_elem) {
+	int int_val, i;
+	size_t index = *pos;
+
+	/* Longitude */
+	int_val = data_packet[index++];
+	for (i = 0; i < 3; i++) {
+		int_val <<= 8;
+		int_val |= data_packet[index++];
+	}
+	gps_elem->longitude = int_val / 10000000.0;
+
+	/* Latitude */
+	int_val = data_packet[index++];
+	for (i = 0; i < 3; i++) {
+		int_val <<= 8;
+		int_val |= data_packet[index++];
+	}
+	gps_elem->latitude = int_val / 10000000.0;
+
+	/* Altitude */
+	gps_elem->altitude = data_packet[index++];
+	gps_elem->altitude <<= 8;
+	gps_elem->altitude |= data_packet[index++];
+
+	/* Angle */
+	gps_elem->angle = data_packet[index++];
+	gps_elem->angle <<= 8;
+	gps_elem->angle |= data_packet[index++];
+
+	/* satellites */
+	gps_elem->satellites = data_packet[index++];
+
+	/* Speed */
+	gps_elem->speed = data_packet[index++];
+	gps_elem->speed <<= 8;
+	gps_elem->speed |= data_packet[index++];
+
+	*pos = index;
+}
+
+/******************************************************************************/
+static void parse_io_element(const unsigned char* data_packet, size_t* pos, io_element* io_elem) {
+	int i, j;
+	size_t index = *pos;
+
+	io_elem->event_io_id = data_packet[index++];
+	io_elem->number_of_total_io = data_packet[index++];
+
+	/* 1-byte values */
+	io_elem->number_of_1byte_io = data_packet[index++];
+	for (i = 0; i < io_elem->number_of_1byte_io; i++) {
+		io_elem->one_byte_io[i].id = data_packet[index++];
+		io_elem->one_byte_io[i].value = data_packet[index++];
+	}
+
+	/* 2-byte values */
+	io_elem->number_of_2byte_io = data_packet[index++];
+	for (i = 0; i < io_elem->number_of_2byte_io; i++) {
+		io_elem->two_byte_io[i].id = data_packet[index++];
+		io_elem->two_byte_io[i].value = data_packet[index++];
+		io_elem->two_byte_io[i].value <<= 8;
+		io_elem->two_byte_io[i].value |= data_packet[index++];
+	}
+
+	/* 4-byte values */
+	io_elem->number_of_4byte_io = data_packet[index++];
+	for (i = 0; i < io_elem->number_of_4byte_io; i++) {
+		io_elem->four_byte_io[i].id = data_packet[index++];
+		io_elem->four_byte_io[i].value = data_packet[index++];
+		for (j = 0; j < 3; j++) {
+			io_elem->four_byte_io[i].value <<= 8;
+			io_elem->four_byte_io[i].value |= data_packet[index++];
+		}
+	}
+
+	/* 8-byte values */
+	io_elem->number_of_8byte_io = data_packet[index++];
+	for (i = 0; i < io_elem->number_of_8byte_io; i++) {
+		io_elem->eight_byte_io[i].id = data_packet[index++];
+		io_elem->eight_byte_io[i].value = data_packet[index++];
+		for (j = 0; j < 7; j++) {
+			io_elem->eight_byte_io[i].value <<= 8;
+			io_elem->eight_byte_io[i].value |= data_packet[index++];
+		}
+	}
+
+	*pos = index;
+}
+/******************************************************************************/
+
+/*  AVL data:  | <timestamp> | <priority> | <GPS element> | <IO Element> |  */
+static void parse_AVL_data(const unsigned char* data_packet, size_t* pos, AVL_data* avl_data) {
+	int i;
+	long int timestamp;
+	gps_element gps_elem;
+	io_element io_elem;
+	size_t index = *pos;
+
+	/* parse timestamp */
+	timestamp = data_packet[index++];
+	for (i = 0; i < 7; i++) {
+		timestamp <<= 8;
+		timestamp |= data_packet[index++];
+	}
+	avl_data->timestamp = timestamp / 1000;
+	/* Priority */
+	avl_data->priority = data_packet[index++];
+	/* GPS Element */
+	parse_gps_element(data_packet, &index, &gps_elem);
+	avl_data->gps_elem = gps_elem;
+	/* IO Element */
+	parse_io_element(data_packet, &index, &io_elem);
+	avl_data->io_elem = io_elem;
+
+	*pos = index;
+}
+
+/******************************************************************************/
+void parse_AVL_data_array(const unsigned char* data_packet, AVL_data_array* data_array) {
+	size_t position = FISRT_RECORD_OFFSET;
+	AVL_data avl_data;
+	int i;
+
+	data_array->number_of_data = data_packet[NUM_OF_DATA];
+	data_array->codec_id = data_packet[CODEC_ID];
+
+	for (i = 0; i < data_array->number_of_data; i++) {
+		parse_AVL_data(data_packet, &position, &avl_data);
+		data_array->records[i] = avl_data;
+	}
+}
 
 /*DB***************************************************************************/
-
 static MYSQL *con;
 
 void db_connect() {
@@ -29,12 +204,18 @@ void db_connect() {
 }
 
 void db_store_AVL_data_array(const AVL_data_array* data_array) {
-//	MYSQL_RES *result;
+	MYSQL_RES *result = NULL;
+	int status = 0;
 	char query[512];
 	char time_str[80];
 	struct tm* tminfo;
 	int i;
 	AVL_data avl_data;
+
+	if (result) {
+		mysql_free_result(result);
+		result = NULL;
+	}
 
 	for (i = 0; i < data_array->number_of_data; i++) {
 		avl_data = data_array->records[i];
@@ -53,17 +234,15 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 				avl_data.gps_elem.speed
 				);
 
-		mysql_query(con, query);
-//		result = mysql_use_result(con);
-		
-//		if (!result) {
-//			printf("mysql_error, %s\n", mysql_error(con));
-//			mysql_free_result(result);
-//			mysql_close(con);
-//			exit(EXIT_FAILURE);
-//		}
-//		
-//		mysql_free_result(result);
+		status = mysql_query(con, query);
+
+		if (status) {
+			printf("mysql_error, %s\n", mysql_error(con));
+			mysql_free_result(result);
+			mysql_close(con);
+			exit(EXIT_FAILURE);
+		}
+		mysql_free_result(result);
 	}
 }
 
@@ -73,10 +252,17 @@ void db_close() {
 }
 /*DB***************************************************************************/
 
+static unsigned char input_buffer[INPUT_BUFSIZE];
+struct event_base *base;
+static GQueue* queue;
+static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cond_consumer = PTHREAD_COND_INITIALIZER;
+static int max_queue_size;
+
 static void* thread_consumer(void *arg) {
 	AVL_data_array *data_array;
 	int s;
-	
+
 	db_connect();
 
 	while (1) {
@@ -97,7 +283,7 @@ static void* thread_consumer(void *arg) {
 		/* consume all AVL data*/
 		while (queue->length) {
 			data_array = g_queue_pop_tail(queue);
-//			print_AVL_data(data_array);
+			//			print_AVL_data(data_array);
 			db_store_AVL_data_array(data_array);
 
 			printf("IMEI %s, %d data stored id db\n", data_array->imei, data_array->number_of_data);
@@ -117,7 +303,6 @@ static void* thread_consumer(void *arg) {
 }
 
 /***********************************************************/
-
 
 static void push_onto_queue(const client_info* client) {
 	AVL_data_array *data_array;
@@ -153,6 +338,7 @@ static void push_onto_queue(const client_info* client) {
 		fatal("%s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
 	}
 }
+
 /***********************************************************/
 
 /* if all bytes of imei are read then return TRUE else return FALSE */
@@ -183,6 +369,7 @@ static int process_imei(const unsigned char* data, size_t nbytes, client_info* c
 	}
 	return FALSE;
 }
+
 /***********************************************************/
 
 /* if all bytes of data packet are read then return TRUE else return FALSE */
