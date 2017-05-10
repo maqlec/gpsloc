@@ -220,7 +220,7 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 		avl_data = data_array->records[i];
 
 		tminfo = localtime(&avl_data.timestamp);
-		strftime(time_str, 80, "%Y-%m-%d %H:%M:%S %z", tminfo);
+		strftime(time_str, 80, "%Y-%m-%d %H:%M:%S", tminfo);
 
 		sprintf(query, "INSERT INTO records(imei, timestamp, latitude, longitude, altitude, angle, satellites, speed) VALUES ('%s', '%s', %lf, %lf, %d, %d, %d, %d)",
 				data_array->imei,
