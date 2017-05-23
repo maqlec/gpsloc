@@ -204,47 +204,44 @@ void print_AVL_data(const AVL_data_array* data_array) {
 	struct tm* tminfo;
 	AVL_data avl_data;
 
-	logger_puts("IMEI: %s\n", data_array->imei);
-	logger_puts("Codec ID: %d\n", data_array->codec_id);
-	logger_puts("Number of data: %d\n", data_array->number_of_data);
+	logger_puts("IMEI: %s", data_array->imei);
+	logger_puts("Codec ID: %d", data_array->codec_id);
+	logger_puts("Number of data: %d", data_array->number_of_data);
 
 	for (i = 0; i < data_array->number_of_data; i++) {
-		logger_puts(" Data %d\n", i + 1);
+		logger_puts(" Data %d", i + 1);
 		avl_data = data_array->records[i];
 
 		tminfo = localtime(&avl_data.timestamp);
-		strftime(buffer, 80, "%Y-%m-%d %H:%M:%S %z", tminfo);
-		logger_puts("   Timestamp: %s\n", buffer);
-		logger_puts("   Priority: %d\n", avl_data.priority);
+		strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", tminfo);
+		logger_puts("   Timestamp: %s", buffer);
+		logger_puts("   Priority: %d", avl_data.priority);
 		/* GPS element*/
-		logger_puts("   GPS Element\n");
-		logger_puts("     Latitude: %lf\n", avl_data.gps_elem.latitude);
-		logger_puts("     Longitude: %lf\n", avl_data.gps_elem.longitude);
-		logger_puts("     Altitude: %d\n", avl_data.gps_elem.altitude);
-		logger_puts("     Angle: %d\n", avl_data.gps_elem.angle);
-		logger_puts("     satellites: %d\n", avl_data.gps_elem.satellites);
-		logger_puts("     Speed: %d\n", avl_data.gps_elem.speed);
+		logger_puts("   GPS Element");
+		logger_puts("     Latitude: %lf", avl_data.gps_elem.latitude);
+		logger_puts("     Longitude: %lf", avl_data.gps_elem.longitude);
+		logger_puts("     Altitude: %d", avl_data.gps_elem.altitude);
+		logger_puts("     Angle: %d", avl_data.gps_elem.angle);
+		logger_puts("     satellites: %d", avl_data.gps_elem.satellites);
+		logger_puts("     Speed: %d", avl_data.gps_elem.speed);
 		/* IO Element */
-		logger_puts("   IO Element\n");
-		logger_puts("     Event IO ID: %d\n", avl_data.io_elem.event_io_id);
-		logger_puts("     #total IO: %d\n", avl_data.io_elem.number_of_total_io);
+		logger_puts("   IO Element");
+		logger_puts("     Event IO ID: %d", avl_data.io_elem.event_io_id);
+		logger_puts("     #total IO: %d", avl_data.io_elem.number_of_total_io);
 		/* 1-byte */
-		logger_puts("     #1-byte IO: %d\n", avl_data.io_elem.number_of_1byte_io);
+		logger_puts("     #1-byte IO: %d", avl_data.io_elem.number_of_1byte_io);
 		for (j = 0; j < avl_data.io_elem.number_of_1byte_io; j++)
 			logger_puts("      (id:%d, val:%lu) ", avl_data.io_elem.one_byte_io[j].id, avl_data.io_elem.one_byte_io[j].value);
-		logger_puts("\n");
 		/* 2-byte */
-		logger_puts("     #2-byte IO: %d\n", avl_data.io_elem.number_of_2byte_io);
+		logger_puts("     #2-byte IO: %d", avl_data.io_elem.number_of_2byte_io);
 		for (j = 0; j < avl_data.io_elem.number_of_2byte_io; j++)
 			logger_puts("      (id:%d, val:%lu) ", avl_data.io_elem.two_byte_io[j].id, avl_data.io_elem.two_byte_io[j].value);
-		logger_puts("\n");
 		/* 4-byte */
-		logger_puts("     #4-byte IO: %d\n", avl_data.io_elem.number_of_4byte_io);
+		logger_puts("     #4-byte IO: %d", avl_data.io_elem.number_of_4byte_io);
 		for (j = 0; j < avl_data.io_elem.number_of_4byte_io; j++)
 			logger_puts("      (id:%d, val:%lu) ", avl_data.io_elem.four_byte_io[j].id, avl_data.io_elem.four_byte_io[j].value);
-		logger_puts("\n");
 		/* 8-byte */
-		logger_puts("     #8-byte IO: %d\n", avl_data.io_elem.number_of_8byte_io);
+		logger_puts("     #8-byte IO: %d", avl_data.io_elem.number_of_8byte_io);
 
 		logger_puts("--------------------------------------------\n");
 	}
