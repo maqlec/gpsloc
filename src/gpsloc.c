@@ -194,8 +194,8 @@ void parse_AVL_data_array(const unsigned char* data_packet, AVL_data_array* data
 void print_raw_packet(const unsigned char* data_packet, size_t len) {
 	int i;
 	for (i = 0; i < len; i++)
-		printf("%02x|", data_packet[i]);
-	printf("\n");
+		logger_put("%02x|", data_packet[i]);
+	logger_puts("----------------------");
 }
 
 void print_AVL_data(const AVL_data_array* data_array) {
