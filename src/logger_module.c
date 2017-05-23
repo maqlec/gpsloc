@@ -49,7 +49,7 @@ void logger_put(const char* format, ...) {
 	va_end(arg_list);
 	errno = saved_errno;
 
-	fprintf(logger_fp, "%s:- %s", tmbuf, buffer);
+	fprintf(logger_fp, "%s", buffer);
 	fflush(logger_fp);
 }
 
