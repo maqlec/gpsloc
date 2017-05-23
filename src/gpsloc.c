@@ -493,7 +493,7 @@ static void push_onto_queue(const client_info* client) {
 		logger_puts("Queue max size: %d", max_queue_size);
 	}
 
-	/*print_raw_packet(client->data_packet->data, client->data_packet->len);*/
+	print_raw_packet(client->data_packet->data, client->data_packet->len);
 	s = pthread_mutex_unlock(&mtx);
 	if (s != 0) {
 		logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
