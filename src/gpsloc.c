@@ -155,7 +155,7 @@ static void parse_AVL_data(const unsigned char* data_packet, size_t* pos, AVL_da
 	io_element io_elem;
 	size_t index = *pos;
 
-	/* parse timestamp */
+	/* parsowanie znaku czasowego */
 	timestamp = data_packet[index++];
 	for (i = 0; i < 7; i++) {
 		timestamp <<= 8;
@@ -247,7 +247,7 @@ void print_AVL_data(const AVL_data_array* data_array) {
 	}
 }
 
-/*DB***************************************************************************/
+/*** obsługa bazy danych ********************************/
 static MYSQL *con;
 
 void db_connect() {
@@ -261,6 +261,11 @@ void db_connect() {
 		logger_puts("Connected to DB");
 	puts("Connected to DB");
 
+}
+
+void db_close() {
+	if (con)
+		mysql_close(con);
 }
 
 void db_store_AVL_data_array(const AVL_data_array* data_array) {
@@ -307,14 +312,9 @@ void db_store_AVL_data_array(const AVL_data_array* data_array) {
 	}
 }
 
-void db_close() {
-	if (con)
-		mysql_close(con);
-}
+/*** koniec obsługi bazy danych ***********************************************/
 
-/*DB***************************************************************************/
-
-/*Clients**********************************************************************/
+/*** obsługa klientów *********************************************************/
 typedef struct {
 	char state;
 	GByteArray *imei;
@@ -376,7 +376,7 @@ void add_client(struct bufferevent *bev) {
 
 	g_hash_table_insert(clients_hash, GINT_TO_POINTER(bev), GINT_TO_POINTER(empty_slot));
 	clients[empty_slot].state = WAIT_FOR_IMEI;
-	/* allocate memmory */
+	/* alokacja pamieci */
 	clients[empty_slot].imei = g_byte_array_new();
 	assert(clients[empty_slot].imei != NULL);
 	clients[empty_slot].data_packet = g_byte_array_new();
@@ -407,8 +407,9 @@ void remove_client(struct bufferevent *bev) {
 	put_empty_slot(slot);
 }
 
-/******************************************************************************/
+/** koniec obługi klientów ****************************************************/
 
+/** tworzenie wątków dla przetwarzania ****************************************/
 static unsigned char input_buffer[INPUT_BUFSIZE];
 struct event_base *base;
 static GQueue* queue;
@@ -428,9 +429,9 @@ static void* thread_consumer(void *arg) {
 			logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
 			fatal("ERROR: %s, '%s', line %d, pthread_mutex_lock failed with code %d", __FILE__, __func__, __LINE__, s);
 		}
-		/******* LOCKED *******************************************/
+		/******* Zablokowany proces *******************************************/
 
-		/* Wait until queue has at least one element*/
+		/* Czeka az z kolejki nie zejdą wszystkie elementy */
 		while (queue->length == 0) {
 			s = pthread_cond_wait(&cond_consumer, &mtx);
 			if (s != 0) {
@@ -439,7 +440,7 @@ static void* thread_consumer(void *arg) {
 			}
 		}
 
-		/* consume all AVL data*/
+		/* przetworzenie wszystkich danych AVL */
 		while (queue->length) {
 			data_array = g_queue_pop_tail(queue);
 			print_AVL_data(data_array);
@@ -450,7 +451,7 @@ static void* thread_consumer(void *arg) {
 			free(data_array);
 		}
 
-		/******* UNLOCK *******************************************/
+		/******* Odblokowanie procesu *****************************************/
 		s = pthread_mutex_unlock(&mtx);
 		if (s != 0) {
 			logger_puts("ERROR: %s, '%s', line %d, pthread_mutex_unlock failed with code %d", __FILE__, __func__, __LINE__, s);
@@ -462,8 +463,7 @@ static void* thread_consumer(void *arg) {
 	return 0;
 }
 
-/***********************************************************/
-
+/** wrzucanie klienta na kolejke do przetworzenia *****************************/
 static void push_onto_queue(const client_info* client) {
 	AVL_data_array *data_array;
 	int s, i;
@@ -501,22 +501,21 @@ static void push_onto_queue(const client_info* client) {
 	}
 }
 
-/***********************************************************/
+/*** sprawdzanie poprawności IMEI i pakietu danych ****************************/
 
-/* if all bytes of imei are read then return TRUE else return FALSE */
+/* jeżeli wszystkie bajty imei sa odczytane zwraca TRUE inaczej zwraca FALSE */
 static int process_imei(const unsigned char* data, size_t nbytes, client_info* client) {
 	size_t length;
 	size_t num_of_read_bytes;
 
 	assert(client != NULL);
 
-	/* append bytes to imei */
+	/* dołącza imei do danych clienta */
 	g_byte_array_append(client->imei, (guint8*) data, nbytes);
 	num_of_read_bytes = client->imei->len;
 
 	if (num_of_read_bytes > 1) {
-		/* more than two bytes have already been read, so we can check
-		   whether or not we have read the entire message */
+		/* jeżeli wiecej niż 2 bajty są odczytane to można uznać że pakiet jest odczytany */
 		length = client->imei->data[0];
 		length <<= 8;
 		length |= client->imei->data[1];
@@ -533,9 +532,7 @@ static int process_imei(const unsigned char* data, size_t nbytes, client_info* c
 	return FALSE;
 }
 
-/***********************************************************/
-
-/* if all bytes of data packet are read then return TRUE else return FALSE */
+/* jeżeli wszystkie bajty danych są przeczytane zwraca TRUE inaczej zwraca FALSE */
 static int process_data_packet(const unsigned char* data, size_t nbytes, client_info* client) {
 	size_t length;
 	size_t num_of_read_bytes;
@@ -543,7 +540,8 @@ static int process_data_packet(const unsigned char* data, size_t nbytes, client_
 	g_byte_array_append(client->data_packet, (guint8*) data, nbytes);
 	num_of_read_bytes = client->data_packet->len;
 
-	if (num_of_read_bytes > 7) /* if at least 8 bytes are recieved */ {
+	/* jeżeli przynajmniej 8 bajtów jest odczytanych to jest OK */ 
+	if (num_of_read_bytes > 7) {
 		length = client->data_packet->data[4];
 		length <<= 8;
 		length |= client->data_packet->data[5];
@@ -565,8 +563,7 @@ static int process_data_packet(const unsigned char* data, size_t nbytes, client_
 	return FALSE;
 }
 
-/***********************************************************/
-
+/** obsługa zdarzeń ***********************************************************/
 static void serv_event_cb(struct bufferevent *bev, short events, void *ctx) {
 	int err;
 
@@ -588,8 +585,7 @@ static void serv_event_cb(struct bufferevent *bev, short events, void *ctx) {
 
 }
 
-/****************************************************************************/
-
+/** zdarzenie odczytujące *****************************************************/
 static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 	struct evbuffer *input = bufferevent_get_input(bev);
 	unsigned char ack[4] = {0, 0, 0, 0};
@@ -613,7 +609,7 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 	}
 
 	if (client->state == WAIT_FOR_IMEI) {
-		/* if process_imei returns TRUE then imei are read entirely, otherwise stay in the WAIT_FOR_IMEI state*/
+		/* jezeli process_imei zwróci TRUE to imei jest odczytywany w całości inaczej zostaje w WAIT_FOR_ IMEI */
 		if (process_imei(input_buffer, nbytes, client)) {
 			ack[0] = 0x01;
 			if (bufferevent_write(bev, ack, 1) == -1) {
@@ -623,8 +619,9 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 			client->state = WAIT_00_01_TOBE_SENT;
 		}
 	} else if (client->state == WAIT_FOR_DATA_PACKET) {
-		if (process_data_packet(input_buffer, nbytes, client))/* if entire AVL packet is read*/ {
-			/* send #data recieved */
+		/* jeżeli cały pakiet AVL jest przeczytany */
+		if (process_data_packet(input_buffer, nbytes, client)) {
+			/* wysyła ile #data otrzymał */
 			ack[3] = client->data_packet->data[NUM_OF_DATA];
 			if (bufferevent_write(bev, ack, 4) == -1) {
 				logger_puts("ERROR: %s, '%s', line %d, couldn't write data to bufferevent", __FILE__, __func__, __LINE__);
@@ -635,8 +632,7 @@ static void serv_read_cb(struct bufferevent *bev, void *ctx) {
 	}
 }
 
-/****************************************************************************/
-
+/*** zdarzenie zapisujące *****************************************************/
 static void serv_write_cb(struct bufferevent *bev, void *ctx) {
 	int s;
 
@@ -648,9 +644,10 @@ static void serv_write_cb(struct bufferevent *bev, void *ctx) {
 	if (client->state == WAIT_00_01_TOBE_SENT) {
 		client->state = WAIT_FOR_DATA_PACKET;
 	} else if (client->state == WAIT_NUM_RECIEVED_DATA_TOBE_SENT) {
-		push_onto_queue(client); /* for parsing and storing in DB, by another thread */
+		/* parsowanie i zapisywanie pakietu w bazie danych przez inny wątek */
+		push_onto_queue(client); 
 
-		/* Wake waiting consumer */
+		/* budzenie oczekującego watku */
 		s = pthread_cond_signal(&cond_consumer);
 		if (s != 0) {
 			logger_puts("ERROR: %s, '%s', line %d, pthread_cond_signal failed with code %d", __FILE__, __func__, __LINE__, s);
@@ -664,8 +661,7 @@ static void serv_write_cb(struct bufferevent *bev, void *ctx) {
 	}
 }
 
-/****************************************************************************/
-
+/*** akceptacja połączenia ****************************************************/
 static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *address, int socklen, void *ctx) {
 	struct event_base *base = evconnlistener_get_base(listener);
 	struct bufferevent *bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
@@ -677,8 +673,7 @@ static void accept_conn_cb(struct evconnlistener *listener, evutil_socket_t fd, 
 	bufferevent_enable(bev, EV_READ);
 }
 
-/****************************************************************************/
-
+/*** błąd odczytu połączenia***************************************************/
 static void accept_error_cb(struct evconnlistener *listener, void *ctx) {
 	struct event_base *base = evconnlistener_get_base(listener);
 	int err = EVUTIL_SOCKET_ERROR();
@@ -687,11 +682,11 @@ static void accept_error_cb(struct evconnlistener *listener, void *ctx) {
 	event_base_loopexit(base, NULL);
 }
 
+/** główna funkcja ************************************************************/
 int main(int argc, char **argv) {
 	struct evconnlistener *listener;
 	struct sockaddr_in sin;
-	int s, port = PORT;
-	void* res;
+	int s, port = 5555;
 	pthread_t pthread;
 
 	logger_open("gpsloc.log");
@@ -700,7 +695,7 @@ int main(int argc, char **argv) {
 	queue = g_queue_new();
 	assert(queue != NULL);
 
-	/* start parallel thread */
+	/* startowanie równoległych wątków */
 	s = pthread_create(&pthread, NULL, thread_consumer, NULL);
 	if (s != 0) {
 		logger_puts("ERROR: %s, '%s', line %d, pthread_create failed with error %d", __FILE__, __func__, __LINE__, s);
@@ -709,12 +704,6 @@ int main(int argc, char **argv) {
 	logger_puts("INFO: AVL data consumer started successfully");
 	puts("AVL data consumer thread started successfully");
 
-
-	if (port <= 0 || port > 65535) {
-		logger_puts("ERROR: %s, '%s', line %d, invalid port", __FILE__, __func__, __LINE__);
-		fatal("ERROR: %s, '%s', line %d, invalid port\n", __FILE__, __func__, __LINE__);
-	}
-
 	base = event_base_new();
 	if (!base) {
 		logger_puts("ERROR: %s, '%s', line %d, couldn't open event base", __FILE__, __func__, __LINE__);
@@ -722,13 +711,13 @@ int main(int argc, char **argv) {
 		fatal("ERROR: %s, '%s', line %d, couldn't open event base\n", __FILE__, __func__, __LINE__);
 	}
 
-	/* Clear the sockaddr before using it, in case there are extra
-	   platform-specific fields that can mess us up. */
+	/* czyszczenie socket_addr przed uzyciem */
 	memset(&sin, 0, sizeof (sin));
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = htonl(0);
 	sin.sin_port = htons(port);
 
+	/* tworzenie nowego nasłuchu **/
 	listener = evconnlistener_new_bind(
 			base,
 			accept_conn_cb,
@@ -744,28 +733,5 @@ int main(int argc, char **argv) {
 	evconnlistener_set_error_cb(listener, accept_error_cb);
 	event_base_dispatch(base);
 
-
-	/* JUST IN CASE,
-	   in fact this code should be unreachable since event_base_dispatch loops infinitely */
-	s = pthread_join(pthread, &res);
-	if (s != 0) {
-		logger_puts("ERROR: %s, '%s', line %d, pthread_join failed with error %d", __FILE__, __func__, __LINE__, s);
-		logger_close();
-		fatal("ERROR: %s, '%s', line %d, pthread_join failed with error %d\n", __FILE__, __func__, __LINE__, s);
-	}
-	puts("AVL data consumer thread finished successfully.");
-
-	/* free */
-	evconnlistener_free(listener);
-	event_base_free(base);
-
-	while (queue->length)
-		free(g_queue_pop_head(queue));
-
-	g_queue_free(queue);
-	pthread_mutex_destroy(&mtx);
-	pthread_cond_destroy(&cond_consumer);
-
-	exit(EXIT_SUCCESS);
 }
 

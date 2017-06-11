@@ -21,7 +21,6 @@
 #define min(m,n) ((m) < (n) ? (m) : (n))
 #define max(m,n) ((m) > (n) ? (m) : (n))
 
-#define PORT 5555
 #define INPUT_BUFSIZE 2048
 
 #define MYSQL_HOST "localhost"
